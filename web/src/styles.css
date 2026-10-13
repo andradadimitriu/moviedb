@@ -1,0 +1,41 @@
+:root {
+  --bg: #f6f6f4; --card: #fff; --text: #1d1d1f; --muted: #6b6b70;
+  --border: #e2e2e0; --accent: #2f5bea; --seen: #1f8a4c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141416; --card: #1d1d20; --text: #ececee; --muted: #9a9aa0;
+    --border: #2e2e33; --accent: #7d9bff; --seen: #4cc983;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, sans-serif; }
+main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { margin: 0 0 20px; font-size: 26px; }
+h2 { margin: 0 0 12px; font-size: 16px; }
+section { background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+.grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+label.full { margin-top: 10px; }
+textarea { resize: vertical; }
+.desc { font-size: 14px; margin: 2px 0 4px; }
+label.inline { flex-direction: row; align-items: center; gap: 6px; }
+input[type=text], input[type=number], textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); font: inherit; }
+button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent);
+  color: #fff; font: inherit; cursor: pointer; }
+button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.hint { color: var(--muted); font-size: 13px; }
+.error { color: #d33; }
+ul { list-style: none; margin: 0; padding: 0; }
+li { display: flex; justify-content: space-between; gap: 12px; align-items: center;
+  padding: 12px 0; border-top: 1px solid var(--border); }
+li:first-child { border-top: 0; }
+.title { font-weight: 600; }
+.meta { color: var(--muted); font-size: 13px; }
+.tag { display: inline-block; padding: 1px 8px; margin-right: 4px; border-radius: 999px;
+  border: 1px solid var(--border); font-size: 12px; }
+.seen { color: var(--seen); font-size: 13px; white-space: nowrap; }
