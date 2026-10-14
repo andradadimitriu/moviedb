@@ -3,7 +3,7 @@ import path from 'node:path';
 import express, { type ErrorRequestHandler } from 'express';
 import { z } from 'zod';
 import { ensureIndex } from './es';
-import { addMovie, findMovies, MovieFilter, NewMovie, setSeen } from './movies';
+import { addMovie, findExisting, findMovies, MovieFilter, NewMovie, setSeen } from './movies';
 
 const app = express();
 app.use(express.json());
@@ -20,9 +20,17 @@ app.get('/api/movies/unseen', async (req, res) => {
   res.json(await findMovies({ ...filter, is_seen: false }));
 });
 
+// Refuses with 409 if a movie with the same title + year + author exists, unless the body has "force": true.
 app.post('/api/movies', async (req, res) => {
-  const movie = await addMovie(NewMovie.parse(req.body));
-  res.status(201).json(movie);
+  const input = NewMovie.parse(req.body);
+  const { force } = z.object({ force: z.boolean().default(false) }).parse(req.body);
+  if (!force) {
+    const duplicates = await findExisting(input);
+    if (duplicates.length > 0) {
+      return void res.status(409).json({ error: 'A movie with the same title, year and author already exists', duplicates });
+    }
+  }
+  res.status(201).json(await addMovie(input));
 });
 
 // Mark as seen. Body is optional; send { "is_seen": false } to undo.

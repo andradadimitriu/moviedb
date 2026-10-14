@@ -35,6 +35,48 @@ export type NewMovie = z.infer<typeof NewMovie>;
 export type MovieFilter = z.infer<typeof MovieFilter>;
 export type Movie = NewMovie & { id: string; created_at: string };
 
+/** What makes two movies "the same" for duplicate checks. */
+export type MovieKey = { title: string; year?: number; author: string };
+
+// `.folded` fields ignore case and accents, so "Amelie" matches "Amélie".
+const same = (field: string, value: string) => ({ term: { [`${field}.folded`]: value } });
+const missing = (field: string) => ({ bool: { must_not: { exists: { field } } } });
+
+/** Matches movies with the same title, year and author. A missing year/author only matches a missing one. */
+function sameMovieQuery(m: MovieKey) {
+  return {
+    bool: {
+      filter: [
+        same('title', m.title),
+        m.year === undefined ? missing('year') : { term: { year: m.year } },
+        m.author
+          ? same('author', m.author)
+          : { bool: { should: [same('author', ''), missing('author')], minimum_should_match: 1 } },
+      ],
+    },
+  };
+}
+
+/** Stored movies with the same title + year + author as `movie`. */
+export async function findExisting(movie: MovieKey): Promise<Movie[]> {
+  const res = await es.search<Omit<Movie, 'id'>>({ index: INDEX, size: 100, query: sameMovieQuery(movie) });
+  return res.hits.hits.map((h) => ({ id: h._id!, ...h._source! }));
+}
+
+/** For each movie, whether one with the same title + year + author is stored. One request for all. */
+export async function existsEach(movies: MovieKey[]): Promise<boolean[]> {
+  if (movies.length === 0) return [];
+  const res = await es.msearch({
+    index: INDEX,
+    searches: movies.flatMap((m) => [{}, { size: 0, track_total_hits: 1, query: sameMovieQuery(m) }]),
+  });
+  return res.responses.map((r) => {
+    if ('error' in r) throw new Error(`Duplicate check failed: ${r.error.reason}`);
+    const total = r.hits.total;
+    return (typeof total === 'number' ? total : (total?.value ?? 0)) > 0;
+  });
+}
+
 export async function addMovie(input: NewMovie): Promise<Movie> {
   const doc = { ...input, created_at: new Date().toISOString() };
   const res = await es.index({ index: INDEX, document: doc, refresh: 'wait_for' });

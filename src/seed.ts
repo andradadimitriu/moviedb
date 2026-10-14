@@ -1,5 +1,5 @@
 import { es, ensureIndex, INDEX } from './es';
-import { NewMovie } from './movies';
+import { existsEach, NewMovie } from './movies';
 
 type Seed = [title: string, year: number, author: string, actors: string[], genre: string[], description: string, seen?: boolean];
 
@@ -41,18 +41,12 @@ const seeds: Seed[] = [
 async function main() {
   await ensureIndex();
 
-  const titles = seeds.map(([title]) => title);
-  const existing = await es.search<{ title: string }>({
-    index: INDEX,
-    size: titles.length,
-    query: { terms: { 'title.keyword': titles } },
-    _source: ['title'],
-  });
-  const have = new Set(existing.hits.hits.map((h) => h._source!.title));
+  // A seed counts as present when a movie with the same title + year + author exists (ignoring case and accents).
+  const exists = await existsEach(seeds.map(([title, year, author]) => ({ title, year, author })));
 
   const created_at = new Date().toISOString();
   const docs = seeds
-    .filter(([title]) => !have.has(title))
+    .filter((_, i) => !exists[i])
     .map(([title, year, author, main_actors, genre, description, seen]) => ({
       ...NewMovie.parse({ title, year, author, main_actors, genre, description, is_seen: seen ?? false }),
       created_at,
@@ -70,7 +64,7 @@ async function main() {
   });
   if (res.errors) throw new Error('Some movies failed to index: ' + JSON.stringify(res.items.filter((i) => i.index?.error)));
 
-  console.log(`Added ${docs.length} movies to "${INDEX}" (${have.size} already existed).`);
+  console.log(`Added ${docs.length} movies to "${INDEX}" (${seeds.length - docs.length} already existed).`);
 }
 
 main().catch((err) => {

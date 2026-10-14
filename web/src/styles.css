@@ -1,11 +1,13 @@
 :root {
   --bg: #f6f6f4; --card: #fff; --text: #1d1d1f; --muted: #6b6b70;
   --border: #e2e2e0; --accent: #2f5bea; --seen: #1f8a4c;
+  --warn-bg: #fff6e0; --warn-border: #e8b64c;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #141416; --card: #1d1d20; --text: #ececee; --muted: #9a9aa0;
     --border: #2e2e33; --accent: #7d9bff; --seen: #4cc983;
+    --warn-bg: #3a2f14; --warn-border: #a07a1f;
   }
 }
 * { box-sizing: border-box; }
@@ -39,3 +41,8 @@ li:first-child { border-top: 0; }
 .tag { display: inline-block; padding: 1px 8px; margin-right: 4px; border-radius: 999px;
   border: 1px solid var(--border); font-size: 12px; }
 .seen { color: var(--seen); font-size: 13px; white-space: nowrap; }
+.warning { margin-top: 12px; padding: 12px; border: 1px solid var(--warn-border);
+  border-radius: 8px; background: var(--warn-bg); font-size: 14px; }
+.warning ul { margin: 6px 0; padding-left: 18px; list-style: disc; }
+.warning li { display: list-item; padding: 0; border: 0; }
+button:disabled { opacity: 0.5; cursor: default; }

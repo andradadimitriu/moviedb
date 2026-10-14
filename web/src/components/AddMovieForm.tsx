@@ -1,25 +1,40 @@
 import { useState, type FormEvent } from 'react';
-import { addMovie } from '../api';
+import { addMovie, DuplicateMovieError } from '../api';
+import type { Movie } from '../types';
 
 const empty = { title: '', author: '', year: '', main_actors: '', genre: '', description: '', is_seen: false };
 
 export function AddMovieForm({ onAdded }: { onAdded: () => void }) {
   const [form, setForm] = useState(empty);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  // Set when the server reports a movie with the same title + year + author; asks before adding anyway.
+  const [duplicates, setDuplicates] = useState<Movie[] | null>(null);
 
-  const set = (key: keyof typeof empty) => (e: { target: { value: string } }) =>
+  const set = (key: keyof typeof empty) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
+    setDuplicates(null);
+  };
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function save(force: boolean) {
     try {
-      await addMovie({ ...form, year: form.year ? Number(form.year) : undefined });
+      await addMovie({ ...form, year: form.year ? Number(form.year) : undefined }, force);
       setForm(empty);
+      setDuplicates(null);
       setStatus({ ok: true, text: 'Added ✓' });
       onAdded();
     } catch (err) {
-      setStatus({ ok: false, text: (err as Error).message });
+      if (err instanceof DuplicateMovieError) {
+        setDuplicates(err.duplicates);
+        setStatus(null);
+      } else {
+        setStatus({ ok: false, text: (err as Error).message });
+      }
     }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    void save(false);
   }
 
   return (
@@ -49,9 +64,29 @@ export function AddMovieForm({ onAdded }: { onAdded: () => void }) {
           />{' '}
           Already seen
         </label>
-        <button type="submit">Add movie</button>
+        <button type="submit" disabled={duplicates !== null}>Add movie</button>
         {status && <span className={status.ok ? 'hint' : 'error'}>{status.text}</span>}
       </div>
+      {duplicates && (
+        <div className="warning" role="alert">
+          <strong>This movie may already be in your list.</strong> Same title, year and author as:
+          <ul>
+            {duplicates.map((m) => (
+              <li key={m.id}>
+                {m.title}
+                {m.year && ` (${m.year})`}
+                {m.author && ` · ${m.author}`}
+                {m.is_seen && ' · seen'}
+              </li>
+            ))}
+          </ul>
+          Are you sure you want to add it again?
+          <div className="row">
+            <button type="button" onClick={() => void save(true)}>Add anyway</button>
+            <button type="button" className="ghost" onClick={() => setDuplicates(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
