@@ -7,8 +7,8 @@ const empty = { title: '', author: '', year: '', main_actors: '', genre: '', des
 export function AddMovieForm({ onAdded }: { onAdded: () => void }) {
   const [form, setForm] = useState(empty);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
-  // Set when the server reports a movie with the same title + year + author; asks before adding anyway.
-  const [duplicates, setDuplicates] = useState<Movie[] | null>(null);
+  // Set when the server reports that the movie may already exist; asks before adding anyway.
+  const [duplicates, setDuplicates] = useState<{ exact: Movie[]; similar: Movie[] } | null>(null);
 
   const set = (key: keyof typeof empty) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -24,7 +24,7 @@ export function AddMovieForm({ onAdded }: { onAdded: () => void }) {
       onAdded();
     } catch (err) {
       if (err instanceof DuplicateMovieError) {
-        setDuplicates(err.duplicates);
+        setDuplicates({ exact: err.duplicates, similar: err.similar });
         setStatus(null);
       } else {
         setStatus({ ok: false, text: (err as Error).message });
@@ -69,18 +69,12 @@ export function AddMovieForm({ onAdded }: { onAdded: () => void }) {
       </div>
       {duplicates && (
         <div className="warning" role="alert">
-          <strong>This movie may already be in your list.</strong> Same title, year and author as:
-          <ul>
-            {duplicates.map((m) => (
-              <li key={m.id}>
-                {m.title}
-                {m.year && ` (${m.year})`}
-                {m.author && ` · ${m.author}`}
-                {m.is_seen && ' · seen'}
-              </li>
-            ))}
-          </ul>
-          Are you sure you want to add it again?
+          <strong>This movie may already be in your list.</strong>
+          {duplicates.exact.length > 0 && <MatchList label="Same title, year and author:" movies={duplicates.exact} />}
+          {duplicates.similar.length > 0 && (
+            <MatchList label="Same year, and a title that means the same (possibly in another language):" movies={duplicates.similar} />
+          )}
+          Are you sure you want to add it?
           <div className="row">
             <button type="button" onClick={() => void save(true)}>Add anyway</button>
             <button type="button" className="ghost" onClick={() => setDuplicates(null)}>Cancel</button>
@@ -88,5 +82,23 @@ export function AddMovieForm({ onAdded }: { onAdded: () => void }) {
         </div>
       )}
     </form>
+  );
+}
+
+function MatchList({ label, movies }: { label: string; movies: Movie[] }) {
+  return (
+    <>
+      <div className="match-label">{label}</div>
+      <ul>
+        {movies.map((m) => (
+          <li key={m.id}>
+            {m.title}
+            {m.year && ` (${m.year})`}
+            {m.author && ` · ${m.author}`}
+            {m.is_seen && ' · seen'}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

@@ -3,7 +3,7 @@ import path from 'node:path';
 import express, { type ErrorRequestHandler } from 'express';
 import { z } from 'zod';
 import { ensureIndex } from './es';
-import { addMovie, findExisting, findMovies, MovieFilter, NewMovie, setSeen } from './movies';
+import { addMovie, backfillTitleVectors, findExisting, findMovies, findSimilarTitle, MovieFilter, NewMovie, setSeen } from './movies';
 
 const app = express();
 app.use(express.json());
@@ -20,14 +20,16 @@ app.get('/api/movies/unseen', async (req, res) => {
   res.json(await findMovies({ ...filter, is_seen: false }));
 });
 
-// Refuses with 409 if a movie with the same title + year + author exists, unless the body has "force": true.
+// Refuses with 409 if the movie may already exist, unless the body has "force": true:
+// `duplicates` = same title + year + author; `similar` = same year, title with the same meaning (any language).
 app.post('/api/movies', async (req, res) => {
   const input = NewMovie.parse(req.body);
   const { force } = z.object({ force: z.boolean().default(false) }).parse(req.body);
   if (!force) {
-    const duplicates = await findExisting(input);
-    if (duplicates.length > 0) {
-      return void res.status(409).json({ error: 'A movie with the same title, year and author already exists', duplicates });
+    const [duplicates, sameMeaning] = await Promise.all([findExisting(input), findSimilarTitle(input)]);
+    const similar = sameMeaning.filter((m) => !duplicates.some((d) => d.id === m.id));
+    if (duplicates.length > 0 || similar.length > 0) {
+      return void res.status(409).json({ error: 'This movie may already exist', duplicates, similar });
     }
   }
   res.status(201).json(await addMovie(input));
@@ -81,6 +83,11 @@ async function start() {
 
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, () => console.log(`moviedb listening on http://localhost:${port}`));
+
+  // In the background: load the embedding model and add title vectors to movies missing one.
+  backfillTitleVectors()
+    .then((n) => n > 0 && console.log(`Added title vectors to ${n} movies.`))
+    .catch((err) => console.error('Title vector backfill failed:', err.message));
 }
 
 void start();

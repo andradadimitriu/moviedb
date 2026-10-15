@@ -1,4 +1,5 @@
 import { Client } from '@elastic/elasticsearch';
+import { DIMS } from './embeddings';
 
 export const INDEX = process.env.ES_INDEX ?? 'movies';
 
@@ -30,6 +31,8 @@ const properties = {
   main_actors: { type: 'text', fields: { keyword: { type: 'keyword' } } },
   // Genres are exact-match, case-insensitive.
   genre: { type: 'keyword', normalizer: 'lowercase' },
+  // Title embedding (see embeddings.ts) for matching titles across languages.
+  title_vector: { type: 'dense_vector', dims: DIMS, similarity: 'cosine', index: true },
   is_seen: { type: 'boolean' },
   created_at: { type: 'date' },
 } as const;

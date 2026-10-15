@@ -1,5 +1,5 @@
 import { es, ensureIndex, INDEX } from './es';
-import { existsEach, NewMovie } from './movies';
+import { backfillTitleVectors, existsEach, NewMovie } from './movies';
 
 type Seed = [title: string, year: number, author: string, actors: string[], genre: string[], description: string, seen?: boolean];
 
@@ -65,6 +65,7 @@ async function main() {
   if (res.errors) throw new Error('Some movies failed to index: ' + JSON.stringify(res.items.filter((i) => i.index?.error)));
 
   console.log(`Added ${docs.length} movies to "${INDEX}" (${seeds.length - docs.length} already existed).`);
+  console.log(`Added title vectors to ${await backfillTitleVectors()} movies.`);
 }
 
 main().catch((err) => {

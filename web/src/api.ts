@@ -27,19 +27,20 @@ export function fetchMovies(filters: Filters): Promise<Movie[]> {
   return request<Movie[]>(`/api/movies?${params}`);
 }
 
-/** Throws DuplicateMovieError if a movie with the same title + year + author exists, unless force is true. */
+/** Throws DuplicateMovieError if the movie may already exist (see the server's POST /api/movies), unless force is true. */
 export async function addMovie(movie: NewMovie, force = false): Promise<Movie> {
   try {
     return await request<Movie>('/api/movies', { method: 'POST', body: { ...movie, force } });
   } catch (err) {
-    if (err instanceof ApiError && err.status === 409) throw new DuplicateMovieError(err.data.duplicates);
+    if (err instanceof ApiError && err.status === 409) throw new DuplicateMovieError(err.data.duplicates, err.data.similar ?? []);
     throw err;
   }
 }
 
 export class DuplicateMovieError extends Error {
-  constructor(readonly duplicates: Movie[]) {
-    super('A movie with the same title, year and author already exists');
+  /** duplicates: same title + year + author. similar: same year, title with the same meaning in any language. */
+  constructor(readonly duplicates: Movie[], readonly similar: Movie[]) {
+    super('This movie may already exist');
   }
 }
 
